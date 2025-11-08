@@ -1,0 +1,48 @@
+/* Apps Script code: doPost to accept attendance and append to sheet.
+   Save this file as Code.gs in the Apps Script project.
+*/
+
+const SCHOOL_IP = "223.178.82.206"; // change if needed
+const SHEET_NAME = "Sheet1"; // default sheet name
+
+function doPost(e) {
+  // e.postData.contents contains the raw request body
+  var content = e.postData && e.postData.contents ? e.postData.contents : "";
+  var json;
+  try {
+    json = JSON.parse(content);
+  } catch (err) {
+    return jsonResponse({ success: false, error: "Invalid JSON" }, 400);
+  }
+
+  var studentId = json.studentId || "";
+  var ipAddress = json.ipAddress || e.parameter.ip || "";
+  var timestamp = json.timestamp || new Date().toLocaleString();
+
+  if (!studentId) {
+    return jsonResponse({ success: false, error: "Missing studentId" }, 400);
+  }
+
+  // Optional: verify IP matches school IP
+  var status = (ipAddress === SCHOOL_IP) ? "OK" : "IP_MISMATCH";
+
+  // Append to sheet
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) sheet = ss.getSheets()[0];
+    sheet.appendRow([timestamp, studentId, ipAddress, status, ""]);
+  } catch (err) {
+    return jsonResponse({ success: false, error: "Sheet append failed: " + err.message }, 500);
+  }
+
+  return jsonResponse({ success: true, status: status });
+}
+
+// helper to return JSON with proper headers
+function jsonResponse(obj, code) {
+  code = code || 200;
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
